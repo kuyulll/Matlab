@@ -1,30 +1,5 @@
 function varargout = GUI(varargin)
-% GUI MATLAB code for GUI.fig
-%      GUI, by itself, creates a new GUI or raises the existing
-%      singleton*.
-%
-%      H = GUI returns the handle to a new GUI or the handle to
-%      the existing singleton*.
-%
-%      GUI('CALLBACK',hObject,eventData,handles,...) calls the local
-%      function named CALLBACK in GUI.M with the given input arguments.
-%
-%      GUI('Property','Value',...) creates a new GUI or raises the
-%      existing singleton*.  Starting from the left, property value pairs are
-%      applied to the GUI before GUI_OpeningFcn gets called.  An
-%      unrecognized property name or invalid value makes property application
-%      stop.  All inputs are passed to GUI_OpeningFcn via varargin.
-%
-%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
-%      instance to run (singleton)".
-%
-% See also: GUIDE, GUIDATA, GUIHANDLES
 
-% Edit the above text to modify the response to help GUI
-
-% Last Modified by GUIDE v2.5 19-Dec-2024 19:14:27
-
-% Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
 gui_State = struct('gui_Name',       mfilename, ...
                    'gui_Singleton',  gui_Singleton, ...
@@ -46,30 +21,15 @@ end
 
 % --- Executes just before GUI is made visible.
 function GUI_OpeningFcn(hObject, eventdata, handles, varargin)
-% This function has no output args, see OutputFcn.
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-% varargin   command line arguments to GUI (see VARARGIN)
 
-% Choose default command line output for GUI
 handles.output = hObject;
 
 % Update handles structure
 guidata(hObject, handles);
 
-% UIWAIT makes GUI wait for user response (see UIRESUME)
-% uiwait(handles.figure1);
 
-
-% --- Outputs from this function are returned to the command line.
 function varargout = GUI_OutputFcn(hObject, eventdata, handles) 
-% varargout  cell array for returning output args (see VARARGOUT);
-% hObject    handle to figure
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 
-% Get default command line output from handles structure
 varargout{1} = handles.output;
 
 
@@ -87,9 +47,7 @@ function pushbutton1_Callback(hObject, eventdata, handles)
 
 % --- Executes on button press in pushbutton2.
 function pushbutton2_Callback(hObject, eventdata, handles)
-% hObject    handle to pushbutton2 (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
+
     global img2;
     axes(handles.axes2);
     cla reset;
@@ -685,3 +643,321 @@ function popupmenu3_CreateFcn(hObject, eventdata, handles)
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
+% --- Executes on selection change in popupmenu4.
+function popupmenu4_Callback(hObject, eventdata, handles)
+    contents = cellstr(get(hObject, 'String'));
+    selectedOption = get(handles.popupmenu4, 'Value');
+    
+    % 获取全局图像
+    global img;
+    
+    % 确保图像已加载
+    if isempty(img)
+        msgbox('图像未加载，请加载图像后再试', '错误', 'error');
+        return;
+    end
+   % 判断图像是否为彩色图像，若是则转为灰度图像
+    if size(img, 3) == 3
+         img_gray =  grayimg(img);  % 如果是彩色图像，先转换为灰度图像
+    else
+         img_gray = img;  % 如果已经是灰度图像，直接使用
+    end
+
+    switch contents{selectedOption}
+        case '分段线性变换'
+            img_double=im2double(img_gray);
+            [h,w]=size(img_double);
+            new_img=zeros(h,w);
+            a=30/256;b=100/256;c=75/256;d=200/256;
+            for x=1:w
+                for y=1:h
+                    if img_double(y,x)<a
+                        new_img(y,x)=img_double(y,x)*c/a;
+                    elseif img_double(y,x)<b
+                        new_img(y,x)=(img_double(y,x)-a)*(d-c)/(b-a)+c;
+                    else
+                         new_img(y,x)=(img_double(y,x)-b)*(1-d)/(1-b)+d;
+                    end
+                   
+                end
+            end  
+            axes(handles.axes3);
+            cla reset;
+            imshow(new_img);
+            title('分段线性变换图像');
+        case '窗切片处理'
+            img_double=im2double(img_gray);
+            [h,w]=size(img_double);
+            new_img=zeros(h,w);
+            a=170/256;b=200/256;c=90/256;d=250/256;
+            for x=1:w
+                for y=1:h
+                    if img_double(y,x)<a
+                        new_img(y,x)=c;
+                    else
+                        new_img(y,x)=d;
+                    end
+                end
+            end
+            axes(handles.axes3);
+            cla reset;
+            imshow(new_img);
+            title('窗切片处理图像');
+        case '对数变换'
+            % 获取图像的大小
+            [height, width] = size(img_gray);
+            
+            % 图像的最大像素值
+            c = 255;
+            
+            % 创建一个空的图像数组用于存储对数变换后的结果
+            img_log = zeros(height, width, 'uint8');
+            
+            % 对每个像素值进行对数变换
+            for i = 1:height
+                for j = 1:width
+                    % 获取当前像素值
+                    pixel_value = double(img_gray(i, j));
+                    
+                    % 应用对数变换公式                    
+                    new_value = c * log(1 + pixel_value) / log(c + 1);
+                    
+                    % 确保值在 [0, 255] 范围内
+                    img_log(i, j) = uint8(min(max(new_value, 0), 255));
+                end
+            end
+            
+           
+            axes(handles.axes3);
+            cla reset;
+            imshow(img_log);
+            title('对数变换后的图像');
+        case '指数变换'
+            % 获取图像的大小
+            [height, width] = size(img_gray);
+            
+            % 常数 c 的设置，通常设置为 255
+            c = 255;
+            
+            % 指数变换的参数 γ，设为大于 1 的值来增强图像的亮度
+            gamma = 1.5;  % 你可以根据需要调整 γ 的值
+            
+            % 创建一个空的图像数组用于存储指数变换后的结果
+            img_exp = zeros(height, width, 'uint8');
+            
+            % 对每个像素值进行指数变换
+            for i = 1:height
+                for j = 1:width
+                    % 获取当前像素值
+                    pixel_value = double(img_gray(i, j));
+                    
+                    % 应用指数变换公式
+                    % 先归一化像素值到 [0, 1] 区间，然后进行指数变换，最后再映射回 [0, 255] 区间
+                    new_value = c * (pixel_value / c) ^ gamma;
+                    
+                    % 确保值在 [0, 255] 范围内
+                    img_exp(i, j) = uint8(min(max(new_value, 0), 255));
+                end
+            end
+            
+            % 在 axes2 上显示指数变换后的图像
+            axes(handles.axes3);
+            cla reset;
+            imshow(img_exp);
+            title('指数变换后的图像');
+    end
+
+function popupmenu4_CreateFcn(hObject, eventdata, handles)
+    
+    if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+        set(hObject,'BackgroundColor','white');
+    end
+
+
+    
+
+
+% --- Executes on selection change in popupmenu5.
+function popupmenu5_Callback(hObject, eventdata, handles)
+    % 获取popupmenu中的内容
+    contents = cellstr(get(hObject, 'String'));
+    selectedOption = get(handles.popupmenu2, 'Value');
+    
+    % 获取全局图像
+    global img;
+    
+    % 确保图像已加载
+    if isempty(img)
+        msgbox('图像未加载，请加载图像后再试', '错误', 'error');
+        return;
+    end
+     if size(img, 3) == 3
+         img_gray =  grayimg(img);  % 转换为灰度图像
+     else
+         img_gray = img;
+     end
+   
+    switch contents{selectedOption}
+        case 'robert'
+            % Robert边缘检测           
+            [height, width] = size(img_gray);
+            Gx = [1 0; 0 -1];  % 水平梯度模板
+            Gy = [0 1; -1 0];  % 垂直梯度模板
+            edge_img = zeros(height, width, 'double');
+            for i = 1:height-1
+                for j = 1:width-1
+                    region = double(img_gray(i:i+1, j:j+1));
+                    grad_x = sum(sum(Gx .* region));
+                    grad_y = sum(sum(Gy .* region));
+                    magnitude = sqrt(grad_x^2 + grad_y^2);
+                    edge_img(i, j) = magnitude;
+                end
+            end
+            edge_img = uint8(edge_img);
+            threshold = 100;
+            edge_img(edge_img < threshold) = 0;
+            edge_img(edge_img >= threshold) = 255;
+            axes(handles.axes3);
+            cla reset;
+            imshow(edge_img);
+            title([contents{selectedOption}]);
+            
+        case 'prewitt'
+            % Prewitt边缘检测          
+            [height, width] = size(img_gray);
+            Gx = [1 0 -1; 1 0 -1; 1 0 -1];  % 水平梯度模板
+            Gy = [1 1 1; 0 0 0; -1 -1 -1];  % 垂直梯度模板
+            edge_img = zeros(height, width, 'double');
+            for i = 2:height-1
+                for j = 2:width-1
+                    region = double(img_gray(i-1:i+1, j-1:j+1));
+                    grad_x = sum(sum(Gx .* region));
+                    grad_y = sum(sum(Gy .* region));
+                    magnitude = sqrt(grad_x^2 + grad_y^2);
+                    edge_img(i, j) = magnitude;
+                end
+            end
+            edge_img = uint8(edge_img);
+            threshold = 100;
+            edge_img(edge_img < threshold) = 0;
+            edge_img(edge_img >= threshold) = 255;
+            axes(handles.axes3);
+            cla reset;
+            imshow(edge_img);
+            title('Prewitt边缘检测');
+            
+        case 'sobel'
+            % Sobel边缘检测
+            [height, width] = size(img_gray);
+            Gx = [-1 0 1; -2 0 2; -1 0 1];  % 水平梯度模板
+            Gy = [-1 -2 -1; 0 0 0; 1 2 1];  % 垂直梯度模板
+            edge_img = zeros(height, width, 'double');
+            for i = 2:height-1
+                for j = 2:width-1
+                    region = double(img_gray(i-1:i+1, j-1:j+1));
+                    grad_x = sum(sum(Gx .* region));
+                    grad_y = sum(sum(Gy .* region));
+                    magnitude = sqrt(grad_x^2 + grad_y^2);
+                    edge_img(i, j) = magnitude;
+                end
+            end
+            edge_img = uint8(edge_img);
+            threshold = 100;
+            edge_img(edge_img < threshold) = 0;
+            edge_img(edge_img >= threshold) = 255;
+            axes(handles.axes3);
+            cla reset;
+            imshow(edge_img);
+            title('Sobel边缘检测');
+            
+        case '拉普拉斯'
+            % 拉普拉斯边缘检测
+            [height, width] = size(img_gray);
+            L = [0 1 0; 1 -4 1; 0 1 0];
+            edge_img = zeros(height, width, 'double');
+            for i = 2:height-1
+                for j = 2:width-1
+                    region = double(img_gray(i-1:i+1, j-1:j+1));
+                    laplacian_value = sum(sum(L .* region));
+                    edge_img(i, j) = laplacian_value;
+                end
+            end
+            edge_img = uint8(edge_img);
+            threshold = 30;
+            edge_img(edge_img < threshold) = 0;
+            edge_img(edge_img >= threshold) = 255;
+            axes(handles.axes3);
+            cla reset;
+            imshow(edge_img);
+            title('拉普拉斯边缘检测');
+    end
+    
+
+% --- Executes during object creation, after setting all properties.
+function popupmenu5_CreateFcn(hObject, eventdata, handles)
+
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in pushbutton6.
+function pushbutton6_Callback(hObject, eventdata, handles)
+    global img;
+    img =  grayimg(img);
+    [N,M]=size(img);
+    P=8;R=2;
+    lbp=zeros(N,M);
+    for j=2:N-1
+        for i=2:M-1
+            neighbor=[j-1 i-1;j-1 i;j-1 i+1;j i+1;j+1 i+1;j+1 i;j+1 i-1;j i-1];
+            count=0;
+            for k=1:8
+                if img(neighbor(k,1),neighbor(k,2))>img(j,i)
+                    count=count+2^(8-k);
+                end 
+            end 
+            lbp(j,i)=count;
+        end 
+    end 
+    lbp=uint8(lbp);   
+    axes(handles.axes3);  % 在指定的axes上显示图像
+    imshow(lbp);   
+    title('lbp');
+
+
+% --- Executes on button press in pushbutton7.
+function pushbutton7_Callback(hObject, eventdata, handles)
+    global img;
+    img = double(rgb2gray(img)); % 读取并转换为灰度图像
+    [N, M] = size(img);
+    img = sqrt(img); % 进行开方操作
+
+    % 定义 Sobel 算子进行边缘检测
+    Hy = [-1 0 1]; Hx = Hy'; % Sobel 算子
+    Gy = imfilter(img, Hy, 'replicate'); % 纵向梯度
+    Gx = imfilter(img, Hx, 'replicate'); % 横向梯度
+    Grad = sqrt(Gx.^2 + Gy.^2); % 梯度幅值
+
+    % 计算相位角度
+    Phase = zeros(N, M); Eps = 0.0001; % 初始化相位矩阵
+    for i = 1:M
+        for j = 1:N
+            if abs(Gx(j, i)) < Eps && abs(Gy(j, i)) < Eps
+                Phase(j, i) = 270; % 没有梯度的情况
+            elseif abs(Gx(j, i)) < Eps && abs(Gy(j, i)) > Eps
+                Phase(j, i) = 90; % 垂直边缘
+            else
+                Phase(j, i) = atan(Gy(j, i) / Gx(j, i)) * 180 / pi; % 计算梯度方向
+                if Phase(j, i) < 0
+                    Phase(j, i) = Phase(j, i) + 180; % 保证相位在[0, 180]区间内
+                end
+            end
+        end
+    end
+    axes(handles.axes3);  % 在指定的axes上显示图像
+    imshow(Phase);   
+    title('hog');
+    axes(handles.axes4);  % 在指定的axes上显示图像
+    imshow(Grad);   
+    title('hog2');
