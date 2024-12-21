@@ -36,10 +36,9 @@ varargout{1} = handles.output;
 % --- Executes on button press in pushbutton1.
 function pushbutton1_Callback(hObject, eventdata, handles)
     global img;
-    axes(handles.axes1);
-    cla reset;
+    global path;
     [filename, pathname] = uigetfile('*.jpg;*.png;*.bmp', '选择图片');
-    path = [pathname, filename];
+    path = fullfile(pathname, filename);
     img = imread(path);
     axes(handles.axes1);
     imshow(img);
@@ -961,3 +960,35 @@ function pushbutton7_Callback(hObject, eventdata, handles)
     axes(handles.axes4);  % 在指定的axes上显示图像
     imshow(Grad);   
     title('hog2');
+
+
+function pushbutton8_Callback(hObject, eventdata, handles)
+    global path;
+   
+    % 添加路径到 Python 环境
+    py.sys.path().append('D:/python/pythonProject/ultralytics');
+   
+    % 导入 Python 模块 'photo'
+    py.importlib.import_module('photo');  
+   
+    model = 'D:/python/pythonProject/ultralytics/runs/classify/train2/weights/best.pt';
+   
+    % 从 Python 获取预测结果
+    try
+        result = py.photo.img_pre(path, model);  % 获取预测结果
+        
+        % 将 Python 字符串转换为 MATLAB 字符串
+        resultStr = char(result);
+        
+        % 如果结果为空或不可识别，显示 "无法识别的"
+        if isempty(resultStr) || strcmp(resultStr, '')
+            resultStr = '无法识别的';
+        end
+        
+    catch
+        % 如果发生错误，显示 "无法识别的"
+        resultStr = '无法识别的';
+    end
+    
+    % 将预测结果显示在 GUI 中
+    set(handles.text2, 'String', resultStr);
