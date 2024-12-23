@@ -333,7 +333,7 @@ function popupmenu1_CreateFcn(hObject, eventdata, handles)
 function popupmenu2_Callback(hObject, eventdata, handles)
      % 获取popupmenu中的内容
     contents = cellstr(get(hObject, 'String'));
-    selectedOption = get(handles.popupmenu5, 'Value');
+    selectedOption = get(handles.popupmenu2, 'Value');
     
     % 获取全局图像
     global img;
@@ -361,7 +361,62 @@ function popupmenu2_Callback(hObject, eventdata, handles)
         case '平滑滤波(模糊技术)'
               
            imgFiltered = PM_Color(img, 5);
+        case '梯度低通滤波'
+            % 如果图像是彩色的，分离RGB通道
+            if size(img, 3) == 3
+                R = img(:,:,1);  % 红色通道
+                G = img(:,:,2);  % 绿色通道
+                B = img(:,:,3);  % 蓝色通道
+                channels = {R, G, B};  % 将RGB通道存储在一个cell数组中
+            else
+                % 如果是灰度图像，直接赋值给RGB通道
+                channels = {img, img, img};
+            end
             
+            % 使用弹窗获取用户输入的截止频率 d0 和 d1
+            prompt = {'请输入最小截止频率 d0:', '请输入最大截止频率 d1:'};
+            dlgtitle = '输入截止频率';
+            dims = [1 35]; % 输入框的大小
+            definput = {'5', '30'};  % 默认值
+            answer = inputdlg(prompt, dlgtitle, dims, definput);
+            
+            % 获取用户输入的d0和d1值并转化为数字
+            d0 = str2double(answer{1});
+            d1 = str2double(answer{2});
+            
+            % 计算频率坐标，避免每次循环都计算
+            [N, M] = size(R);  % 假设图像是矩形，取任意通道的尺寸
+            [X, Y] = meshgrid(1:M, 1:N);
+            X = X - floor(M / 2); % x轴偏移
+            Y = Y - floor(N / 2); % y轴偏移
+            
+            % 计算到频域中心的距离矩阵
+            D = sqrt(X.^2 + Y.^2);
+            
+            % 创建一个空矩阵用于存储滤波器后的结果
+            H = ones(N, M);  % 默认滤波器为1
+            
+            % 设计梯度低通滤波器
+            H(D > d1) = 0;  % 高于最大截止频率的部分为0
+            H(D > d0 & D <= d1) = (D(D > d0 & D <= d1) - d1) / (d0 - d1); % 线性过渡区
+            
+            % 对每个通道进行处理
+            filtered_channels = cell(1, 3);  % 存储滤波后的RGB通道
+            
+            for j = 1:3
+                % 对当前通道进行傅里叶变换、滤波、逆傅里叶变换
+                F = fftshift(fft2(double(channels{j})));  % 傅里叶变换
+                F = F .* H;  % 应用滤波器
+                g = ifftshift(F);  % 频谱移回原位置
+                g = real(ifft2(g));  % 逆傅里叶变换到空域并取实部
+            
+                % 存储滤波后的通道
+                filtered_channels{j} = uint8(g);
+            end
+            
+            % 合并RGB通道
+            imgFiltered = cat(3, filtered_channels{1}, filtered_channels{2}, filtered_channels{3});
+
         otherwise
             return;
     end
@@ -642,6 +697,7 @@ function popupmenu3_CreateFcn(hObject, eventdata, handles)
     if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
         set(hObject,'BackgroundColor','white');
     end
+    
 % --- Executes on selection change in popupmenu4.
 function popupmenu4_Callback(hObject, eventdata, handles)
     contents = cellstr(get(hObject, 'String'));
@@ -780,7 +836,7 @@ function popupmenu4_CreateFcn(hObject, eventdata, handles)
 function popupmenu5_Callback(hObject, eventdata, handles)
     % 获取popupmenu中的内容
     contents = cellstr(get(hObject, 'String'));
-    selectedOption = get(handles.popupmenu2, 'Value');
+    selectedOption = get(handles.popupmenu5, 'Value');
     
     % 获取全局图像
     global img;
@@ -925,53 +981,106 @@ function pushbutton6_Callback(hObject, eventdata, handles)
     title('lbp');
 
 
-% --- Executes on button press in pushbutton7.
 function pushbutton7_Callback(hObject, eventdata, handles)
     global img;
-    img = double(rgb2gray(img)); % 读取并转换为灰度图像
-    [N, M] = size(img);
-    img = sqrt(img); % 进行开方操作
+    
+    % 将图像转换为灰度图像（HOG 通常在灰度图像上计算）
+    grayImg = grayimg(img);  % 假设 img 是彩色图像
+    
+    % 提取 HOG 特征
+    hog_features = extractHOG(grayImg);
+    
+    % 显示 HOG 特征的可视化
+    axes(handles.axes3);
+    hold on;
+    plot(hog_features);
+    title('HOG Features Visualization');    
 
-    % 定义 Sobel 算子进行边缘检测
-    Hy = [-1 0 1]; Hx = Hy'; % Sobel 算子
-    Gy = imfilter(img, Hy, 'replicate'); % 纵向梯度
-    Gx = imfilter(img, Hx, 'replicate'); % 横向梯度
-    Grad = sqrt(Gx.^2 + Gy.^2); % 梯度幅值
+    [features, visualization] = extractHOGFeatures(grayImg);    
+    % 显示 HOG 特征的可视化
+    axes(handles.axes4);
+    imshow(grayImg);
+    hold on;
+    plot(visualization);
+    title('HOG Features Visualization');
+    
+    
+    
 
-    % 计算相位角度
-    Phase = zeros(N, M); Eps = 0.0001; % 初始化相位矩阵
-    for i = 1:M
-        for j = 1:N
-            if abs(Gx(j, i)) < Eps && abs(Gy(j, i)) < Eps
-                Phase(j, i) = 270; % 没有梯度的情况
-            elseif abs(Gx(j, i)) < Eps && abs(Gy(j, i)) > Eps
-                Phase(j, i) = 90; % 垂直边缘
-            else
-                Phase(j, i) = atan(Gy(j, i) / Gx(j, i)) * 180 / pi; % 计算梯度方向
-                if Phase(j, i) < 0
-                    Phase(j, i) = Phase(j, i) + 180; % 保证相位在[0, 180]区间内
+% 手动提取 HOG 特征的函数
+function hog_features = extractHOG(grayImg)
+    % 计算图像的梯度
+    [Ix, Iy] = gradient(double(grayImg));
+    magnitude = sqrt(Ix.^2 + Iy.^2);
+    angle = atan2(Iy, Ix);
+    
+    % 设置 cell 大小
+    cell_size = 8;
+    [rows, cols] = size(grayImg);
+    num_cells_x = floor(cols / cell_size);
+    num_cells_y = floor(rows / cell_size);
+    
+    % 计算每个 cell 内的梯度方向直方图
+    hog_features = zeros(num_cells_y, num_cells_x, 9);  % 9 个方向 bins
+    bin_edges = linspace(-pi, pi, 10);  % 9 个 bins
+    
+    for i = 1:num_cells_y
+        for j = 1:num_cells_x
+            % 获取当前 cell 的区域
+            x_start = (j-1) * cell_size + 1;
+            x_end = j * cell_size;
+            y_start = (i-1) * cell_size + 1;
+            y_end = i * cell_size;
+            
+            % 提取当前 cell 的梯度方向和幅值
+            cell_magnitude = magnitude(y_start:y_end, x_start:x_end);
+            cell_angle = angle(y_start:y_end, x_start:x_end);
+            
+            % 计算梯度方向直方图
+            for k = 1:numel(cell_magnitude)
+                % 计算梯度方向所在的 bin
+                bin_idx = find(cell_angle(k) >= bin_edges(1:end-1) & cell_angle(k) < bin_edges(2:end));
+                if isempty(bin_idx)
+                    bin_idx = 9;  % 处理 -pi 或 pi 边界的情况
                 end
+                hog_features(i, j, bin_idx) = hog_features(i, j, bin_idx) + cell_magnitude(k);
             end
         end
     end
-    axes(handles.axes3);  % 在指定的axes上显示图像
-    imshow(Phase);   
-    title('hog');
-    axes(handles.axes4);  % 在指定的axes上显示图像
-    imshow(Grad);   
-    title('hog2');
+    
+    % 对 block 进行归一化
+    block_size = 2;  % 2x2 cell
+    num_blocks_x = num_cells_x - block_size + 1;
+    num_blocks_y = num_cells_y - block_size + 1;
+    normalized_hog = zeros(num_blocks_y, num_blocks_x, 36);  % 每个 block 由 4 个 cell 和 9 个 bins 组成
+    
+    for i = 1:num_blocks_y
+        for j = 1:num_blocks_x
+            % 提取 2x2 cells 的梯度直方图
+            block_hist = hog_features(i:i+block_size-1, j:j+block_size-1, :);
+            block_hist = block_hist(:);  % 展平为一个向量
+            
+            % 对 block 进行 L2 归一化
+            norm_factor = sqrt(sum(block_hist.^2) + 1e-6);  % 加上一个小常数避免除以零
+            normalized_hog(i, j, :) = block_hist / norm_factor;
+        end
+    end
+    
+    % 展平并返回最终的 HOG 特征向量
+    hog_features = normalized_hog(:);
+
 
 
 function pushbutton8_Callback(hObject, eventdata, handles)
     global path;
    
     % 添加路径到 Python 环境
-    py.sys.path().append('D:/python/pythonProject/ultralytics');
+    py.sys.path().append('D:/matlab/MatlabGUI');
    
     % 导入 Python 模块 'photo'
     py.importlib.import_module('photo');  
    
-    model = 'D:/python/pythonProject/ultralytics/runs/classify/train2/weights/best.pt';
+    model = 'D:/matlab/MatlabGUI/best.pt';
    
     % 从 Python 获取预测结果
     try
@@ -992,3 +1101,89 @@ function pushbutton8_Callback(hObject, eventdata, handles)
     
     % 将预测结果显示在 GUI 中
     set(handles.text2, 'String', resultStr);
+
+
+% --- Executes on button press in pushbutton9.
+function pushbutton9_Callback(hObject, eventdata, handles)
+    global img;
+    % 转换为灰度图像
+    grayImg = grayimg(img);
+
+    % 调用函数计算手动计算的灰度直方图
+     histogram = hist_img(img);
+     % 在指定的轴上绘制灰度直方图
+     axes(handles.axes2);  % 指定显示区域
+     cla reset;  % 清空当前图形窗口
+     bar(0:255, histogram, 'BarWidth', 0.5); 
+     title('手动计算的灰度直方图');
+     xlabel('灰度级');
+     ylabel('像素数');
+     xlim([0 255]);  
+    
+  
+    % 弹窗输入阈值
+    prompt = {'请输入阈值（0到255之间的值）:'};
+    dlgtitle = '输入阈值';
+    definput = {'0.3'};  % 默认值为 0.3
+    answer = inputdlg(prompt, dlgtitle, [1 50], definput);
+    
+    % 获取输入的阈值并转换为数值
+    threshold = str2double(answer{1}) * 255;  % 输入值是0到1之间，转换为0到255之间
+    
+    % 检查输入的阈值是否有效
+    if isnan(threshold) || threshold < 0 || threshold > 255
+        error('请输入一个有效的阈值（0到1之间）');
+    end
+    
+    % 自定义二值化函数
+    binaryImg = customBinarize(grayImg, threshold);
+    
+    % 显示二值化图像
+    axes(handles.axes3);  % 在指定的axes上显示图像
+    imshow(binaryImg);
+    title('二值化图像');
+    
+    % 将前景部分置为黑色，背景保留
+    foregroundBlack = img;
+    
+    % 自定义替代repmat的功能，将二值图像复制到3个通道
+    binaryImg3D = customRepMat(binaryImg, 3); % 复制到3通道
+    
+    % 通过扩展后的binaryImg3D来处理前景与背景
+    foregroundBlack(binaryImg3D == 1) = 0; % 前景置黑，保留背景
+    
+    % 显示处理后的图像
+    axes(handles.axes4);  % 在指定的axes上显示图像
+    imshow(foregroundBlack);
+    title('提取的目标图像');
+
+
+    % 自定义二值化函数
+function binaryImg = customBinarize(grayImg, threshold)
+    % 将灰度图像进行手动二值化
+    % 输入：灰度图像，阈值
+    % 输出：二值图像
+    [rows, cols] = size(grayImg);
+    binaryImg = zeros(rows, cols);
+    
+    for i = 1:rows
+        for j = 1:cols
+            if grayImg(i, j) > threshold
+                binaryImg(i, j) = 1;  % 白色
+            else
+                binaryImg(i, j) = 0;  % 黑色
+            end
+        end
+    end
+
+
+% 自定义repmat函数
+function output = customRepMat(input, numTimes)
+    % 将二维二值图像扩展为三维
+    % 输入：input是二值图像，numTimes是通道数（在本例中为3）
+    [rows, cols] = size(input);
+    output = zeros(rows, cols, numTimes);
+    
+    for i = 1:numTimes
+        output(:,:,i) = input;  % 将input复制到每个通道
+    end
